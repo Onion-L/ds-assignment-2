@@ -22,7 +22,11 @@ export const handler: SQSHandler = async (event) => {
         const s3e = messageRecord.s3;
         const srcBucket = s3e.bucket.name;
         // Object key may have spaces or unicode non-ASCII characters.
-        const srcKey = decodeURIComponent(s3e.object.key.replace(/\+/g, " "));
+        const srcKey = decodeURIComponent(s3e.object.key.replace(/\+/g, " "));        
+        if (!srcKey.toLowerCase().endsWith('.jpeg') && !srcKey.toLowerCase().endsWith('.png')) {
+          console.error("Unsupported file type for key: ", srcKey);
+          throw new Error(`Unsupported image type: ${srcKey}`);
+        }
         let origimage = null;
         try {
           // Download the image from the S3 source bucket.
