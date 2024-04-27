@@ -8,7 +8,7 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 import * as iam from "aws-cdk-lib/aws-iam";
-
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
@@ -21,8 +21,15 @@ export class EDAAppStack extends cdk.Stack {
       autoDeleteObjects: true,
       publicReadAccess: false,
     });
+      //DynamoDB Table
+      const imagesTable = new dynamodb.Table(this, "imagesTable", {
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        partitionKey: { name: "imageName", type: dynamodb.AttributeType.STRING },
+        removalPolicy: cdk.RemovalPolicy.DESTROY,                                 
+        tableName: "Images",                                                     
+      })
+
     //Queue
-    
     const badImagesQueue = new sqs.Queue(this, "bad-orders-q", {
       retentionPeriod: cdk.Duration.minutes(30),
     });
@@ -32,7 +39,7 @@ export class EDAAppStack extends cdk.Stack {
       deadLetterQueue: {
         queue: badImagesQueue,
         // # of rejections by consumer (lambda function)
-        maxReceiveCount: 1,
+        maxReceiveCount: 2,
       }
     });
 
@@ -53,6 +60,10 @@ export class EDAAppStack extends cdk.Stack {
         entry: `${__dirname}/../lambdas/processImage.ts`,
         timeout: cdk.Duration.seconds(15),
         memorySize: 128,
+        environment: {
+          TABLE_NAME: imagesTable.tableName,
+          REGION: 'eu-west-1',
+        }
       }
     );
 
@@ -75,11 +86,13 @@ export class EDAAppStack extends cdk.Stack {
     s3.EventType.OBJECT_CREATED,
     new s3n.SnsDestination(newImageTopic)  // Changed
   );
+
   newImageTopic.addSubscription(
     new subs.SqsSubscription(imageProcessQueue)
   );
-
   newImageTopic.addSubscription(new subs.SqsSubscription(mailerQ));
+  newImageTopic.addSubscription(new subs.SqsSubscription(badImagesQueue));
+
 
    // SQS --> Lambda
     const newImageEventSource = new events.SqsEventSource(imageProcessQueue, {
@@ -124,6 +137,8 @@ export class EDAAppStack extends cdk.Stack {
         resources: ["*"],
       })
     );
+
+    imagesTable.grantReadWriteData(processImageFn)
     // Output
     
     new cdk.CfnOutput(this, "bucketName", {

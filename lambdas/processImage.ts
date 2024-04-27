@@ -7,8 +7,11 @@ import {
   S3Client,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 
 const s3 = new S3Client();
+const ddbDocClient = createDDbDocClient();
 
 export const handler: SQSHandler = async (event) => {
   console.log("Event ", JSON.stringify(event));
@@ -27,6 +30,7 @@ export const handler: SQSHandler = async (event) => {
           console.error("Unsupported file type for key: ", srcKey);
           throw new Error(`Unsupported image type: ${srcKey}`);
         }
+
         let origimage = null;
         try {
           // Download the image from the S3 source bucket.
@@ -36,6 +40,16 @@ export const handler: SQSHandler = async (event) => {
           };
           origimage = await s3.send(new GetObjectCommand(params));
           // Process the image ......
+          const commandOutput = await ddbDocClient.send(
+            new PutCommand({
+              TableName: process.env.TABLE_NAME,
+              Item: {
+                "imageName": srcKey
+              }
+            })
+          )
+  
+          console.log("DynamoDB response: ", commandOutput)
         } catch (error) {
           console.log(error);
         }
@@ -43,3 +57,17 @@ export const handler: SQSHandler = async (event) => {
     }
   }
 };
+
+function createDDbDocClient() {
+  const ddbClient = new DynamoDBClient({ region: process.env.REGION });
+  const marshallOptions = {
+    convertEmptyValues: true,
+    removeUndefinedValues: true,
+    convertClassInstanceToMap: true,
+  };
+  const unmarshallOptions = {
+    wrapNumbers: false,
+  };
+  const translateConfig = { marshallOptions, unmarshallOptions };
+  return DynamoDBDocumentClient.from(ddbClient, translateConfig);
+}

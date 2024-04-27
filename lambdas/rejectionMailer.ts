@@ -65,7 +65,7 @@ function sendEmailParams({ name, email, message }: ContactDetails) {
       },
       Subject: {
         Charset: "UTF-8",
-        Data: `Error Processing Image`,
+        Data: 'Error Processing Image',
       },
     },
     Source: SES_EMAIL_FROM,
