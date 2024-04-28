@@ -9,6 +9,7 @@ export const handler: SNSHandler = async (event: any) => {
     for (const record of event.Records) {    
       console.log("Record ", record)
       const snsMessage = JSON.parse(record.Sns.Message);
+console.log('SNS',snsMessage);
 
       if (snsMessage.Records) {
         console.log("message body ", JSON.stringify(snsMessage));
@@ -17,7 +18,8 @@ export const handler: SNSHandler = async (event: any) => {
 
             const srcKey = decodeURIComponent(s3e.object.key.replace(/\+/g, " "));
             console.log('srcKey ', JSON.stringify(srcKey))
-
+          console.log('srcKey',srcKey);
+          
             const commandOutput = await ddbDocClient.send(
                 new DeleteCommand({
                     TableName: process.env.TABLE_NAME,
@@ -29,7 +31,19 @@ export const handler: SNSHandler = async (event: any) => {
 
             console.log("DynamoDB response: ", commandOutput)
         }
+    }else if(snsMessage.name) {
+      const commandOutput = await ddbDocClient.send(
+        new DeleteCommand({
+            TableName: process.env.TABLE_NAME,
+            Key: {
+                "imageName": snsMessage.name
+            }
+        })
+    )
+
+    console.log("DynamoDB response: ", commandOutput)
     }
+   
 }
 }
 

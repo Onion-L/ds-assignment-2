@@ -52,8 +52,8 @@ export class EDAAppStack extends cdk.Stack {
       displayName: "New Image topic",
     }); 
 
-    const deleteImageTopic = new sns.Topic(this, "DeleteImageTopic", {
-      displayName: "Delete Image topic",
+    const updateImageTopic = new sns.Topic(this, "UpdateImageTopic", {
+      displayName: "Update Image topic",
     });
 
     // Lambda functions
@@ -87,6 +87,21 @@ export class EDAAppStack extends cdk.Stack {
       }
     );
 
+    const updateImageFn = new lambdanode.NodejsFunction(
+      this,
+      "UpdateImage",
+      {
+        runtime: lambda.Runtime.NODEJS_18_X,
+        entry: `${__dirname}/../lambdas/updateImage.ts`,
+        timeout: cdk.Duration.seconds(15),
+        memorySize: 128,
+        environment: {
+          TABLE_NAME: imagesTable.tableName,
+          REGION: 'eu-west-1',
+        },
+      }
+    );
+
     const rejectionMailerFn = new lambdanode.NodejsFunction(this, "rejection-mailer-function", {
       runtime: lambda.Runtime.NODEJS_18_X,
       memorySize: 1024,
@@ -109,14 +124,29 @@ export class EDAAppStack extends cdk.Stack {
 
   imagesBucket.addEventNotification(
     s3.EventType.OBJECT_REMOVED,
-    new s3n.SnsDestination(deleteImageTopic)
+    new s3n.SnsDestination(updateImageTopic)
   )
 
   newImageTopic.addSubscription(
     new subs.SqsSubscription(imageProcessQueue)
   );
   newImageTopic.addSubscription(new subs.SqsSubscription(mailerQ));
-  deleteImageTopic.addSubscription(new subs.LambdaSubscription(deleteImageFn));
+  updateImageTopic.addSubscription(new subs.LambdaSubscription(deleteImageFn,{
+    filterPolicy: {
+      comment_type: sns.SubscriptionFilter.stringFilter({
+          allowlist: ['Process Delete']
+      }),
+    },
+  }));
+  updateImageTopic.addSubscription(
+    new subs.LambdaSubscription(updateImageFn, {
+        filterPolicy: {
+          comment_type: sns.SubscriptionFilter.stringFilter({
+              allowlist: ['Update Table']
+          }),
+        },
+    })
+  );
 
    // SQS --> Lambda
     const newImageEventSource = new events.SqsEventSource(imageProcessQueue, {
@@ -164,13 +194,14 @@ export class EDAAppStack extends cdk.Stack {
 
     imagesTable.grantReadWriteData(processImageFn)
     imagesTable.grantReadWriteData(deleteImageFn)
+    imagesTable.grantReadWriteData(updateImageFn)
     // Output
     
     new cdk.CfnOutput(this, "bucketName", {
       value: imagesBucket.bucketName,
     });
     new cdk.CfnOutput(this, "topicARN", {
-      value: deleteImageTopic.topicArn,
+      value: updateImageTopic.topicArn,
     });
   }
 }
