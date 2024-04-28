@@ -48,13 +48,9 @@ export class EDAAppStack extends cdk.Stack {
     });
 
     //topic
-    const newImageTopic = new sns.Topic(this, "NewImageTopic", {
-      displayName: "New Image topic",
+    const imageTopic = new sns.Topic(this, "ImageTopic", {
+      displayName: "Image topic",
     }); 
-
-    const updateImageTopic = new sns.Topic(this, "UpdateImageTopic", {
-      displayName: "Update Image topic",
-    });
 
     // Lambda functions
     const processImageFn = new lambdanode.NodejsFunction(
@@ -119,26 +115,32 @@ export class EDAAppStack extends cdk.Stack {
    // S3 --> SQS
   imagesBucket.addEventNotification(
     s3.EventType.OBJECT_CREATED,
-    new s3n.SnsDestination(newImageTopic)  // Changed
+    new s3n.SnsDestination(imageTopic) 
   );
 
   imagesBucket.addEventNotification(
     s3.EventType.OBJECT_REMOVED,
-    new s3n.SnsDestination(updateImageTopic)
+    new s3n.SnsDestination(imageTopic)
   )
 
-  newImageTopic.addSubscription(
-    new subs.SqsSubscription(imageProcessQueue)
-  );
-  newImageTopic.addSubscription(new subs.SqsSubscription(mailerQ));
-  updateImageTopic.addSubscription(new subs.LambdaSubscription(deleteImageFn,{
+  imageTopic.addSubscription(new subs.SqsSubscription(imageProcessQueue,{
+    filterPolicyWithMessageBody: {
+      Records: sns.FilterOrPolicy.policy({                                                          //https://www.youtube.com/watch?v=36iMOJQUAuE
+        eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({                  //https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.FilterOrPolicy.html
+          matchPrefixes: ['ObjectCreated:Put']
+        }))
+      })
+    }
+  }));
+  imageTopic.addSubscription(new subs.SqsSubscription(mailerQ));
+  imageTopic.addSubscription(new subs.LambdaSubscription(deleteImageFn,{
     filterPolicy: {
       comment_type: sns.SubscriptionFilter.stringFilter({
           allowlist: ['Process Delete']
       }),
     },
   }));
-  updateImageTopic.addSubscription(
+  imageTopic.addSubscription(
     new subs.LambdaSubscription(updateImageFn, {
         filterPolicy: {
           comment_type: sns.SubscriptionFilter.stringFilter({
@@ -201,7 +203,7 @@ export class EDAAppStack extends cdk.Stack {
       value: imagesBucket.bucketName,
     });
     new cdk.CfnOutput(this, "topicARN", {
-      value: updateImageTopic.topicArn,
+      value: imageTopic.topicArn,
     });
   }
 }
