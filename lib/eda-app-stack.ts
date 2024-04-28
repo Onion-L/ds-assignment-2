@@ -125,8 +125,8 @@ export class EDAAppStack extends cdk.Stack {
 
   imageTopic.addSubscription(new subs.SqsSubscription(imageProcessQueue,{
     filterPolicyWithMessageBody: {
-      Records: sns.FilterOrPolicy.policy({                                                          //https://www.youtube.com/watch?v=36iMOJQUAuE
-        eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({                  //https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sns.FilterOrPolicy.html
+      Records: sns.FilterOrPolicy.policy({
+        eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({
           matchPrefixes: ['ObjectCreated:Put']
         }))
       })
