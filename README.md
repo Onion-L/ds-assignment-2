@@ -1,8 +1,8 @@
-# EDA Assignment - Distributed Systems.
+# EDA Assignment - Distributed Systems
 
 __Name:__ Xiang Li
 
-__YouTube Demo link__ - [The URL of the video demonstration of the app.]
+__YouTube Demo link__ - [Youtube - DS Assignment 2](https://youtu.be/A8KxcLgoN4w)
 
 ## Phase 1
 
@@ -31,6 +31,8 @@ __YouTube Demo link__ - [The URL of the video demonstration of the app.]
 + Delete Image - Fully implemented.
   + __Lambda function: deleteImage.ts__
   + Use the AWS CLI to delete objects from a storage bucket.
+  + Subscribe to Topic2
+  + Only the "ObjectRemoved:Delete" event receives a request to delete an image.
 
 ## Phase 3 (if relevant)
 
